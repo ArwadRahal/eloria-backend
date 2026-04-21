@@ -6,6 +6,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const nodemailer = require("nodemailer");
+const fs = require("fs");
 
 const app = express();
 
@@ -43,16 +44,48 @@ const db = mysql.createConnection({
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+  database: process.env.DB_NAME,
+  multipleStatements: true
 });
 
-db.connect((err) => {
-  if (err) {
-    console.log("❌ Error connecting to database:", err);
-  } else {
-    console.log("✅ Connected to MySQL database");
+const queryAsync = (sql, values = []) => {
+  return new Promise((resolve, reject) => {
+    db.query(sql, values, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
+  });
+};
+
+async function importSqlIfNeeded() {
+  try {
+    const tables = await queryAsync("SHOW TABLES LIKE 'products'");
+
+    if (tables.length > 0) {
+      console.log("✅ Database tables already exist, skipping SQL import");
+      return;
+    }
+
+    const sqlFilePath = path.join(__dirname, "eloria.sql");
+
+    if (!fs.existsSync(sqlFilePath)) {
+      console.log("⚠️ eloria.sql file not found, skipping import");
+      return;
+    }
+
+    const sqlContent = fs.readFileSync(sqlFilePath, "utf8");
+
+    if (!sqlContent.trim()) {
+      console.log("⚠️ eloria.sql is empty, skipping import");
+      return;
+    }
+
+    await queryAsync(sqlContent);
+    console.log("✅ SQL file imported successfully");
+  } catch (error) {
+    console.log("❌ Error importing SQL file:", error);
   }
-});
+}
 
 app.get("/", (req, res) => {
   res.send("ELORIA backend is running 💄");
@@ -490,8 +523,22 @@ app.delete("/orders/:id", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 8801;
+async function startServer() {
+  db.connect(async (err) => {
+    if (err) {
+      console.log("❌ Error connecting to database:", err);
+      return;
+    }
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+    console.log("✅ Connected to MySQL database");
+
+    await importSqlIfNeeded();
+
+    const PORT = process.env.PORT || 8801;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  });
+}
+
+startServer();
