@@ -18,7 +18,9 @@ app.use(
 
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -145,15 +147,22 @@ app.post(
     );
   }
 );
-
-app.put(
-  "/products/:id",
+app.put("/products/:id", (req, res) => {
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "image2", maxCount: 1 },
     { name: "image3", maxCount: 1 }
-  ]),
-  (req, res) => {
+  ])(req, res, (uploadErr) => {
+    if (uploadErr) {
+      console.log("❌ Upload error:", uploadErr);
+      return res.status(500).json({
+        error: "Upload failed",
+        details: uploadErr.message
+      });
+    }
+
+    const productId = req.params.id;
+
     const {
       name,
       price,
@@ -163,8 +172,6 @@ app.put(
       image_url_2,
       image_url_3
     } = req.body;
-
-    const productId = req.params.id;
 
     const finalImageUrl = req.files?.image?.[0]
       ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image[0].filename}`
@@ -196,18 +203,23 @@ app.put(
         finalImageUrl3,
         productId
       ],
-      (err) => {
+      (err, result) => {
         if (err) {
-          console.log("Error updating product:", err);
-          return res.status(500).json({ error: "Failed to update product" });
+          console.log("❌ Error updating product:", err);
+          return res.status(500).json({
+            error: "Failed to update product",
+            details: err.message
+          });
         }
 
-        return res.json({ message: "Product updated successfully" });
+        res.json({
+          message: "Product updated successfully",
+          affectedRows: result.affectedRows
+        });
       }
     );
-  }
-);
-
+  });
+});
 app.delete("/products/:id", (req, res) => {
   const productId = req.params.id;
 
