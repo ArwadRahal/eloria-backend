@@ -105,48 +105,6 @@ app.get("/products", (req, res) => {
     return res.json(result);
   });
 });
-
-app.post(
-  "/products",
-  upload.fields([
-    { name: "image", maxCount: 1 },
-    { name: "image2", maxCount: 1 },
-    { name: "image3", maxCount: 1 }
-  ]),
-  (req, res) => {
-    const { name, price, stock, category_id } = req.body;
-
-    const image_url = req.files?.image?.[0]
-      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image[0].filename}`
-      : "";
-
-    const image_url_2 = req.files?.image2?.[0]
-      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image2[0].filename}`
-      : "";
-
-    const image_url_3 = req.files?.image3?.[0]
-      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image3[0].filename}`
-      : "";
-
-    const sql = `
-      INSERT INTO products (name, price, stock, category_id, image_url, image_url_2, image_url_3)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(
-      sql,
-      [name, price, stock, category_id, image_url, image_url_2, image_url_3],
-      (err) => {
-        if (err) {
-          console.log("Error adding product:", err);
-          return res.status(500).json({ error: "Failed to add product" });
-        }
-
-        return res.json({ message: "Product added successfully" });
-      }
-    );
-  }
-);
 app.put("/products/:id", (req, res) => {
   upload.fields([
     { name: "image", maxCount: 1 },
@@ -220,6 +178,72 @@ app.put("/products/:id", (req, res) => {
     );
   });
 });
+app.put(  "/products/:id",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "image2", maxCount: 1 },
+    { name: "image3", maxCount: 1 }
+  ]),
+  (req, res) => {
+    const productId = req.params.id;
+
+    const {
+      name,
+      price,
+      stock,
+      category_id,
+      image_url,
+      image_url_2,
+      image_url_3
+    } = req.body;
+
+    const finalImageUrl = req.files?.image?.[0]
+      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image[0].filename}`
+      : image_url || "";
+
+    const finalImageUrl2 = req.files?.image2?.[0]
+      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image2[0].filename}`
+      : image_url_2 || "";
+
+    const finalImageUrl3 = req.files?.image3?.[0]
+      ? `${req.protocol}://${req.get("host")}/uploads/${req.files.image3[0].filename}`
+      : image_url_3 || "";
+
+    const sql = `
+      UPDATE products
+      SET name = ?, price = ?, stock = ?, category_id = ?, image_url = ?, image_url_2 = ?, image_url_3 = ?
+      WHERE id = ?
+    `;
+
+    db.query(
+      sql,
+      [
+        name,
+        price,
+        stock,
+        category_id,
+        finalImageUrl,
+        finalImageUrl2,
+        finalImageUrl3,
+        productId
+      ],
+      (err, result) => {
+        if (err) {
+          console.log("❌ Error updating product:", err);
+          return res.status(500).json({
+            error: "Failed to update product",
+            details: err.message
+          });
+        }
+
+        return res.json({
+          message: "Product updated successfully",
+          affectedRows: result.affectedRows
+        });
+      }
+    );
+  }
+);
 app.delete("/products/:id", (req, res) => {
   const productId = req.params.id;
 
