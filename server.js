@@ -106,6 +106,38 @@ app.post("/categories", (req, res) => {
     });
   });
 });
+app.delete("/categories/:id", (req, res) => {
+  const categoryId = req.params.id;
+
+  // نتحقق إذا في منتجات
+  const checkSql = "SELECT COUNT(*) AS count FROM products WHERE category_id = ?";
+
+  db.query(checkSql, [categoryId], (err, result) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).json({ error: "Error checking products" });
+    }
+
+    const count = result[0].count;
+
+    if (count > 0) {
+      return res.status(400).json({
+        error: "Cannot delete category because it has products"
+      });
+    }
+
+    const deleteSql = "DELETE FROM categories WHERE id = ?";
+
+    db.query(deleteSql, [categoryId], (err2, result2) => {
+      if (err2) {
+        console.log(err2);
+        return res.status(500).json({ error: "Failed to delete category" });
+      }
+
+      res.json({ message: "Category deleted" });
+    });
+  });
+});
 
 /* =========================
    PRODUCTS
