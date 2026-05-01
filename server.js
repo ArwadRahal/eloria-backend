@@ -65,6 +65,52 @@ app.get("/", (req, res) => {
   res.send("ELORIA backend is running 💄");
 });
 
+/* =========================
+   CATEGORIES
+   ========================= */
+
+app.get("/categories", (req, res) => {
+  const sql = "SELECT * FROM categories ORDER BY id ASC";
+
+  db.query(sql, (err, result) => {
+    if (err) {
+      console.log("Error fetching categories:", err);
+      return res.status(500).json({ error: "Failed to fetch categories" });
+    }
+
+    return res.json(result);
+  });
+});
+
+app.post("/categories", (req, res) => {
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Category name is required" });
+  }
+
+  const sql = "INSERT INTO categories (name) VALUES (?)";
+
+  db.query(sql, [name.trim()], (err, result) => {
+    if (err) {
+      console.log("Error adding category:", err);
+      return res.status(500).json({
+        error: "Failed to add category",
+        details: err.message
+      });
+    }
+
+    return res.json({
+      message: "Category added successfully",
+      categoryId: result.insertId
+    });
+  });
+});
+
+/* =========================
+   PRODUCTS
+   ========================= */
+
 app.get("/products", (req, res) => {
   const sql = "SELECT * FROM products ORDER BY id DESC";
 
@@ -238,6 +284,10 @@ app.delete("/products/:id", (req, res) => {
     return res.json({ message: "Product deleted successfully" });
   });
 });
+
+/* =========================
+   ORDERS
+   ========================= */
 
 app.post("/orders", (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
