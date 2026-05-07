@@ -428,8 +428,9 @@ app.post("/orders", (req, res) => {
             }
           })
           .catch((error) => {
-            console.log("Error updating stock:", error);
-            return res.status(500).json({ error: "Stock update failed" });
+return res.status(400).json({
+  error: error.message || "Not enough stock for one of the products."
+});            return res.status(500).json({ error: "Stock update failed" });
           });
       });
     }
