@@ -320,119 +320,165 @@ app.delete("/products/:id", (req, res) => {
 /* =========================
    ORDERS
    ========================= */
-
 app.post("/orders", (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
+
+  if (!customerInfo || !Array.isArray(cart) || cart.length === 0) {
+    return res.status(400).json({ error: "Invalid order data" });
+  }
+
   const { fullName, phone, city, address, notes } = customerInfo;
 
-  const orderSql = `
-    INSERT INTO orders 
-    (customer_name, phone, city, address, notes, total_price, payment_method, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'cash_on_delivery', 'pending')
-  `;
+  if (!fullName || !phone || !city || !address) {
+    return res.status(400).json({ error: "Missing customer information" });
+  }
+
+  const productIds = cart.map((item) => item.id);
 
   db.query(
-    orderSql,
-    [fullName, phone, city, address, notes, totalPrice],
-    (err, orderResult) => {
-      if (err) {
-        console.log("Error inserting order:", err);
-        return res.status(500).json({ error: "Failed to save order" });
+    "SELECT id, name, stock FROM products WHERE id IN (?)",
+    [productIds],
+    (stockCheckErr, stockRows) => {
+      if (stockCheckErr) {
+        console.log("Error checking stock:", stockCheckErr);
+        return res.status(500).json({ error: "Failed to check stock" });
       }
 
-      const orderId = orderResult.insertId;
+      for (const item of cart) {
+        const product = stockRows.find(
+          (row) => Number(row.id) === Number(item.id)
+        );
 
-      const orderItemsValues = cart.map((item) => [
-        orderId,
-        item.id,
-        item.name,
-        item.quantity,
-        item.price
-      ]);
-
-      const orderItemsSql = `
-        INSERT INTO order_items 
-        (order_id, product_id, product_name, quantity, price)
-        VALUES ?
-      `;
-
-      db.query(orderItemsSql, [orderItemsValues], (err) => {
-        if (err) {
-          console.log("Error inserting order items:", err);
-          return res.status(500).json({ error: "Failed to save order items" });
+        if (!product) {
+          return res.status(400).json({
+            error: `Product not found: ${item.name}`
+          });
         }
 
-        const updateStockPromises = cart.map((item) => {
-          return new Promise((resolve, reject) => {
-            const updateStockSql = `
-              UPDATE products
-              SET stock = stock - ?
-              WHERE id = ? AND stock >= ?
-            `;
-
-            db.query(
-              updateStockSql,
-              [item.quantity, item.id, item.quantity],
-              (err, result) => {
-                if (err) reject(err);
-                else if (result.affectedRows === 0) {
-                  reject(new Error(`Not enough stock for product ID ${item.id}`));
-                } else {
-                  resolve();
-                }
-              }
-            );
+        if (Number(product.stock) < Number(item.quantity)) {
+          return res.status(400).json({
+            error: `Not enough stock for ${product.name}. Available: ${product.stock}`
           });
-        });
+        }
+      }
 
-        Promise.all(updateStockPromises)
-          .then(async () => {
-            const itemsHtml = cart
-              .map(
-                (item) => `
-                  <li>${item.name} — Qty: ${item.quantity} — Price: ${item.price} ₪</li>
-                `
-              )
-              .join("");
+      const orderSql = `
+        INSERT INTO orders 
+        (customer_name, phone, city, address, notes, total_price, payment_method, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'cash_on_delivery', 'pending')
+      `;
 
-            const mailOptions = {
-              from: process.env.EMAIL_USER,
-              to: process.env.EMAIL_USER,
-              subject: `New ELORIA Order #${orderId} 💄`,
-              html: `
-                <h2>New Order Received</h2>
-                <p><strong>Order ID:</strong> ${orderId}</p>
-                <p><strong>Name:</strong> ${fullName}</p>
-                <p><strong>Phone:</strong> ${phone}</p>
-                <p><strong>City:</strong> ${city}</p>
-                <p><strong>Address:</strong> ${address}</p>
-                <p><strong>Notes:</strong> ${notes || "—"}</p>
-                <p><strong>Total:</strong> ${totalPrice} ₪</p>
-                <h3>Items:</h3>
-                <ul>${itemsHtml}</ul>
-              `
-            };
+      db.query(
+        orderSql,
+        [fullName, phone, city, address, notes || "", totalPrice],
+        (orderErr, orderResult) => {
+          if (orderErr) {
+            console.log("Error inserting order:", orderErr);
+            return res.status(500).json({ error: "Failed to save order" });
+          }
 
-            try {
-              await transporter.sendMail(mailOptions);
-              return res.json({
-                message: "Order saved, stock updated, and email sent successfully",
-                orderId
-              });
-            } catch (emailError) {
-              console.log("Error sending email:", emailError);
-              return res.json({
-                message: "Order saved and stock updated, but email failed",
-                orderId
+          const orderId = orderResult.insertId;
+
+          const orderItemsValues = cart.map((item) => [
+            orderId,
+            item.id,
+            item.name,
+            item.quantity,
+            item.price
+          ]);
+
+          const orderItemsSql = `
+            INSERT INTO order_items 
+            (order_id, product_id, product_name, quantity, price)
+            VALUES ?
+          `;
+
+          db.query(orderItemsSql, [orderItemsValues], (itemsErr) => {
+            if (itemsErr) {
+              console.log("Error inserting order items:", itemsErr);
+              return res.status(500).json({
+                error: "Failed to save order items"
               });
             }
-          })
-          .catch((error) => {
-return res.status(400).json({
-  error: error.message || "Not enough stock for one of the products."
-});            return res.status(500).json({ error: "Stock update failed" });
+
+            const updateStockPromises = cart.map((item) => {
+              return new Promise((resolve, reject) => {
+                const updateStockSql = `
+                  UPDATE products
+                  SET stock = stock - ?
+                  WHERE id = ? AND stock >= ?
+                `;
+
+                db.query(
+                  updateStockSql,
+                  [item.quantity, item.id, item.quantity],
+                  (updateErr, result) => {
+                    if (updateErr) reject(updateErr);
+                    else if (result.affectedRows === 0) {
+                      reject(
+                        new Error(`Not enough stock for product ID ${item.id}`)
+                      );
+                    } else {
+                      resolve();
+                    }
+                  }
+                );
+              });
+            });
+
+            Promise.all(updateStockPromises)
+              .then(async () => {
+                const itemsHtml = cart
+                  .map(
+                    (item) => `
+                      <li>${item.name} — Qty: ${item.quantity} — Price: ${item.price} ₪</li>
+                    `
+                  )
+                  .join("");
+
+                const mailOptions = {
+                  from: process.env.EMAIL_USER,
+                  to: process.env.EMAIL_USER,
+                  subject: `New ELORIA Order #${orderId} 💄`,
+                  html: `
+                    <h2>New Order Received</h2>
+                    <p><strong>Order ID:</strong> ${orderId}</p>
+                    <p><strong>Name:</strong> ${fullName}</p>
+                    <p><strong>Phone:</strong> ${phone}</p>
+                    <p><strong>City:</strong> ${city}</p>
+                    <p><strong>Address:</strong> ${address}</p>
+                    <p><strong>Notes:</strong> ${notes || "—"}</p>
+                    <p><strong>Total:</strong> ${totalPrice} ₪</p>
+                    <h3>Items:</h3>
+                    <ul>${itemsHtml}</ul>
+                  `
+                };
+
+                transporter.sendMail(mailOptions).catch((emailError) => {
+                  console.log("Email failed, but order was saved:", emailError);
+                });
+
+                return res.status(201).json({
+                  message: "Order saved successfully",
+                  orderId
+                });
+              })
+              .catch((stockErr) => {
+                console.log("Error updating stock:", stockErr);
+
+                db.query("DELETE FROM order_items WHERE order_id = ?", [orderId], () => {
+                  db.query("DELETE FROM orders WHERE id = ?", [orderId], () => {
+                    return res.status(400).json({
+                      error:
+                        stockErr.message ||
+                        "Not enough stock for one of the products."
+                    });
+                  });
+                });
+              });
           });
-      });
+        }
+      );
     }
   );
 });
