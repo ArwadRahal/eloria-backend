@@ -6,7 +6,7 @@ const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
 const multer = require("multer");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const cloudinary = require("cloudinary").v2;
 
 const app = express();
@@ -45,22 +45,7 @@ const uploadToCloudinary = (fileBuffer, folder = "eloria-products") => {
     stream.end(fileBuffer);
   });
 };
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  requireTLS: true,
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-  socketTimeout: 20000,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    servername: "smtp.gmail.com"
-  }
-});
+
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
