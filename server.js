@@ -72,10 +72,11 @@ app.post("/admin-login", (req, res) => {
     });
   }
 
-  return res.json({
-    success: true,
-    message: "Admin login successful"
-  });
+ return res.json({
+  success: true,
+  message: "Admin login successful",
+  token: process.env.ADMIN_SECRET_TOKEN
+});
 });
 app.get("/", (req, res) => {
   res.send("ELORIA backend is running 💄");
