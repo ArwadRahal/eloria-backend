@@ -45,7 +45,7 @@ const uploadToCloudinary = (fileBuffer, folder = "eloria-products") => {
     stream.end(fileBuffer);
   });
 };
-
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
