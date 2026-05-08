@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const dns = require("dns");
 dns.setDefaultResultOrder("ipv4first");
+
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
@@ -18,6 +19,24 @@ app.use(
 );
 
 app.use(express.json());
+
+const verifyAdmin = (req, res, next) => {
+  const token = req.headers["x-admin-token"];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Access denied. No admin token."
+    });
+  }
+
+  if (token !== process.env.ADMIN_SECRET_TOKEN) {
+    return res.status(403).json({
+      error: "Invalid admin token."
+    });
+  }
+
+  next();
+};
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -45,6 +64,7 @@ const uploadToCloudinary = (fileBuffer, folder = "eloria-products") => {
     stream.end(fileBuffer);
   });
 };
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const db = mysql.createConnection({
@@ -55,6 +75,7 @@ const db = mysql.createConnection({
   database: process.env.DB_NAME,
   multipleStatements: true
 });
+
 app.post("/admin-login", (req, res) => {
   const { password } = req.body;
 
@@ -72,12 +93,13 @@ app.post("/admin-login", (req, res) => {
     });
   }
 
- return res.json({
-  success: true,
-  message: "Admin login successful",
-  token: process.env.ADMIN_SECRET_TOKEN
+  return res.json({
+    success: true,
+    message: "Admin login successful",
+    token: process.env.ADMIN_SECRET_TOKEN
+  });
 });
-});
+
 app.get("/", (req, res) => {
   res.send("ELORIA backend is running 💄");
 });
@@ -99,7 +121,7 @@ app.get("/categories", (req, res) => {
   });
 });
 
-app.post("/categories", (req, res) => {
+app.post("/categories", verifyAdmin, (req, res) => {
   const { name } = req.body;
 
   if (!name || !name.trim()) {
@@ -123,10 +145,10 @@ app.post("/categories", (req, res) => {
     });
   });
 });
-app.delete("/categories/:id", (req, res) => {
+
+app.delete("/categories/:id", verifyAdmin, (req, res) => {
   const categoryId = req.params.id;
 
-  // نتحقق إذا في منتجات
   const checkSql = "SELECT COUNT(*) AS count FROM products WHERE category_id = ?";
 
   db.query(checkSql, [categoryId], (err, result) => {
@@ -145,13 +167,13 @@ app.delete("/categories/:id", (req, res) => {
 
     const deleteSql = "DELETE FROM categories WHERE id = ?";
 
-    db.query(deleteSql, [categoryId], (err2, result2) => {
+    db.query(deleteSql, [categoryId], (err2) => {
       if (err2) {
         console.log(err2);
         return res.status(500).json({ error: "Failed to delete category" });
       }
 
-      res.json({ message: "Category deleted" });
+      return res.json({ message: "Category deleted" });
     });
   });
 });
@@ -175,6 +197,7 @@ app.get("/products", (req, res) => {
 
 app.post(
   "/products",
+  verifyAdmin,
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "image2", maxCount: 1 },
@@ -242,6 +265,7 @@ app.post(
 
 app.put(
   "/products/:id",
+  verifyAdmin,
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "image2", maxCount: 1 },
@@ -321,7 +345,7 @@ app.put(
   }
 );
 
-app.delete("/products/:id", (req, res) => {
+app.delete("/products/:id", verifyAdmin, (req, res) => {
   const productId = req.params.id;
 
   db.query("DELETE FROM products WHERE id = ?", [productId], (err) => {
@@ -337,6 +361,7 @@ app.delete("/products/:id", (req, res) => {
 /* =========================
    ORDERS
    ========================= */
+
 app.post("/orders", (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
 
@@ -444,7 +469,7 @@ app.post("/orders", (req, res) => {
             });
 
             Promise.all(updateStockPromises)
-              .then(async () => {
+              .then(() => {
                 const itemsHtml = cart
                   .map(
                     (item) => `
@@ -454,9 +479,6 @@ app.post("/orders", (req, res) => {
                   .join("");
 
                 const mailOptions = {
-                  from: process.env.EMAIL_USER,
-                  to: process.env.EMAIL_USER,
-                  subject: `New ELORIA Order #${orderId} 💄`,
                   html: `
                     <h2>New Order Received</h2>
                     <p><strong>Order ID:</strong> ${orderId}</p>
@@ -470,14 +492,17 @@ app.post("/orders", (req, res) => {
                     <ul>${itemsHtml}</ul>
                   `
                 };
-resend.emails.send({
-  from: "ELORIA <onboarding@resend.dev>",
-  to: process.env.EMAIL_USER,
-  subject: `New ELORIA Order #${orderId} 💄`,
-  html: mailOptions.html
-}).catch((emailError) => {
-  console.log("Email failed, but order was saved:", emailError);
-});
+
+                resend.emails
+                  .send({
+                    from: "ELORIA <onboarding@resend.dev>",
+                    to: process.env.EMAIL_USER,
+                    subject: `New ELORIA Order #${orderId} 💄`,
+                    html: mailOptions.html
+                  })
+                  .catch((emailError) => {
+                    console.log("Email failed, but order was saved:", emailError);
+                  });
 
                 return res.status(201).json({
                   message: "Order saved successfully",
@@ -504,7 +529,7 @@ resend.emails.send({
   );
 });
 
-app.get("/orders", (req, res) => {
+app.get("/orders", verifyAdmin, (req, res) => {
   db.query("SELECT * FROM orders ORDER BY created_at DESC", (err, result) => {
     if (err) {
       console.log("Error fetching orders:", err);
@@ -515,7 +540,7 @@ app.get("/orders", (req, res) => {
   });
 });
 
-app.get("/orders-with-items", (req, res) => {
+app.get("/orders-with-items", verifyAdmin, (req, res) => {
   const ordersSql = "SELECT * FROM orders ORDER BY created_at DESC";
 
   db.query(ordersSql, (err, ordersResult) => {
@@ -550,12 +575,12 @@ app.get("/orders-with-items", (req, res) => {
       .then((ordersWithItems) => res.json(ordersWithItems))
       .catch((error) => {
         console.log("Error fetching order items:", error);
-        res.status(500).json({ error: "Failed to fetch order items" });
+        return res.status(500).json({ error: "Failed to fetch order items" });
       });
   });
 });
 
-app.put("/orders/:id/status", (req, res) => {
+app.put("/orders/:id/status", verifyAdmin, (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
 
@@ -636,7 +661,7 @@ app.put("/orders/:id/status", (req, res) => {
   });
 });
 
-app.delete("/orders/:id", (req, res) => {
+app.delete("/orders/:id", verifyAdmin, (req, res) => {
   const orderId = req.params.id;
 
   db.query("SELECT * FROM orders WHERE id = ?", [orderId], (err, orderResult) => {
@@ -651,53 +676,59 @@ app.delete("/orders/:id", (req, res) => {
 
     const order = orderResult[0];
 
-    db.query("SELECT * FROM order_items WHERE order_id = ?", [orderId], (err, itemsResult) => {
-      if (err) {
-        console.log("Error fetching order items:", err);
-        return res.status(500).json({ error: "Failed to fetch order items" });
-      }
+    db.query(
+      "SELECT * FROM order_items WHERE order_id = ?",
+      [orderId],
+      (err, itemsResult) => {
+        if (err) {
+          console.log("Error fetching order items:", err);
+          return res.status(500).json({ error: "Failed to fetch order items" });
+        }
 
-      const shouldRestoreStock =
-        order.status !== "cancelled" && !order.stock_restored;
+        const shouldRestoreStock =
+          order.status !== "cancelled" && !order.stock_restored;
 
-      const restorePromises = shouldRestoreStock
-        ? itemsResult.map((item) => {
-            return new Promise((resolve, reject) => {
-              db.query(
-                "UPDATE products SET stock = stock + ? WHERE id = ?",
-                [item.quantity, item.product_id],
-                (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                }
-              );
-            });
-          })
-        : [];
+        const restorePromises = shouldRestoreStock
+          ? itemsResult.map((item) => {
+              return new Promise((resolve, reject) => {
+                db.query(
+                  "UPDATE products SET stock = stock + ? WHERE id = ?",
+                  [item.quantity, item.product_id],
+                  (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                  }
+                );
+              });
+            })
+          : [];
 
-      Promise.all(restorePromises)
-        .then(() => {
-          db.query("DELETE FROM order_items WHERE order_id = ?", [orderId], (err) => {
-            if (err) {
-              console.log("Error deleting order items:", err);
-              return res.status(500).json({ error: "Failed to delete order items" });
-            }
-
-            db.query("DELETE FROM orders WHERE id = ?", [orderId], (err) => {
+        Promise.all(restorePromises)
+          .then(() => {
+            db.query("DELETE FROM order_items WHERE order_id = ?", [orderId], (err) => {
               if (err) {
-                console.log("Error deleting order:", err);
-                return res.status(500).json({ error: "Failed to delete order" });
+                console.log("Error deleting order items:", err);
+                return res.status(500).json({ error: "Failed to delete order items" });
               }
 
-              return res.json({ message: "Order deleted successfully" });
+              db.query("DELETE FROM orders WHERE id = ?", [orderId], (err) => {
+                if (err) {
+                  console.log("Error deleting order:", err);
+                  return res.status(500).json({ error: "Failed to delete order" });
+                }
+
+                return res.json({ message: "Order deleted successfully" });
+              });
+            });
+          })
+          .catch((error) => {
+            console.log("Error restoring stock before delete:", error);
+            return res.status(500).json({
+              error: "Failed to restore stock before delete"
             });
           });
-        })
-        .catch((error) => {
-          console.log("Error restoring stock before delete:", error);
-          return res.status(500).json({ error: "Failed to restore stock before delete" });
-        });
-    });
+      }
+    );
   });
 });
 
