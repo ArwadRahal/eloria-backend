@@ -448,10 +448,14 @@ app.post("/orders", (req, res) => {
                     <ul>${itemsHtml}</ul>
                   `
                 };
-
-                transporter.sendMail(mailOptions).catch((emailError) => {
-                  console.log("Email failed, but order was saved:", emailError);
-                });
+resend.emails.send({
+  from: "ELORIA <onboarding@resend.dev>",
+  to: process.env.EMAIL_USER,
+  subject: `New ELORIA Order #${orderId} 💄`,
+  html: mailOptions.html
+}).catch((emailError) => {
+  console.log("Email failed, but order was saved:", emailError);
+});
 
                 return res.status(201).json({
                   message: "Order saved successfully",
