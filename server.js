@@ -9,7 +9,7 @@ const cors = require("cors");
 const multer = require("multer");
 const { Resend } = require("resend");
 const cloudinary = require("cloudinary").v2;
-
+const helmet = require("helmet");
 const app = express();
 const rateLimit = require("express-rate-limit");
 app.use(
@@ -20,7 +20,11 @@ app.use(
 
 app.use(express.json());
 
-
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false
+  })
+);
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
