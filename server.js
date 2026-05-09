@@ -413,7 +413,31 @@ app.post("/orders", orderLimiter, (req, res) => {
   }
 
   const { fullName, phone, city, address, notes } = customerInfo;
+const normalizedPhone = String(phone).replace(/\D/g, "");
 
+if (
+  !fullName.trim() ||
+  !city.trim() ||
+  !address.trim() ||
+  normalizedPhone.length < 7
+) {
+  return res.status(400).json({
+    error: "Invalid customer information"
+  });
+}
+
+for (const item of cart) {
+  if (
+    !item.id ||
+    !item.name ||
+    Number(item.quantity) <= 0 ||
+    Number(item.price) < 0
+  ) {
+    return res.status(400).json({
+      error: "Invalid cart item"
+    });
+  }
+}
   if (!fullName || !phone || !city || !address) {
     return res.status(400).json({ error: "Missing customer information" });
   }
