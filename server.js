@@ -414,12 +414,17 @@ app.post("/orders", orderLimiter, (req, res) => {
 
   const { fullName, phone, city, address, notes } = customerInfo;
 const normalizedPhone = String(phone).replace(/\D/g, "");
+const israeliPhoneRegex = /^05\d{8}$/;
 
+if (!israeliPhoneRegex.test(normalizedPhone)) {
+  return res.status(400).json({
+    error: "Invalid Israeli phone number"
+  });
+}
 if (
   !fullName.trim() ||
   !city.trim() ||
-  !address.trim() ||
-  normalizedPhone.length < 7
+  !address.trim()
 ) {
   return res.status(400).json({
     error: "Invalid customer information"
@@ -438,9 +443,9 @@ for (const item of cart) {
     });
   }
 }
-  if (!fullName || !phone || !city || !address) {
-    return res.status(400).json({ error: "Missing customer information" });
-  }
+  // if (!fullName || !phone || !city || !address) {
+  //   return res.status(400).json({ error: "Missing customer information" });
+  // }
 
   const productIds = cart.map((item) => item.id);
 
