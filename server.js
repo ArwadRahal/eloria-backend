@@ -23,7 +23,12 @@ app.use(express.json());
 
 app.use(
   helmet({
-    crossOriginResourcePolicy: false
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false,
+    frameguard: { action: "sameorigin" },
+    referrerPolicy: {
+      policy: "strict-origin-when-cross-origin"
+    }
   })
 );
 const generalLimiter = rateLimit({
@@ -53,6 +58,11 @@ const orderLimiter = rateLimit({
 app.use(generalLimiter);
 
 const verifyAdmin = (req, res, next) => {
+  if (!process.env.ADMIN_SECRET_TOKEN) {
+  return res.status(500).json({
+    error: "Admin token is not configured"
+  });
+}
   const token = req.headers["x-admin-token"];
 
   if (!token) {
@@ -184,7 +194,7 @@ app.post("/categories", verifyAdmin, (req, res) => {
       console.log("Error adding category:", err);
       return res.status(500).json({
         error: "Failed to add category",
-        details: err.message
+       details: "Internal server error"
       });
     }
 
@@ -196,8 +206,13 @@ app.post("/categories", verifyAdmin, (req, res) => {
 });
 
 app.delete("/categories/:id", verifyAdmin, (req, res) => {
-  const categoryId = req.params.id;
+const categoryId = Number(req.params.id);
 
+if (!Number.isInteger(categoryId)) {
+  return res.status(400).json({
+    error: "Invalid category id"
+  });
+}
   const checkSql = "SELECT COUNT(*) AS count FROM products WHERE category_id = ?";
 
   db.query(checkSql, [categoryId], (err, result) => {
@@ -259,9 +274,12 @@ const price = Number(req.body.price);
 const stock = Number(req.body.stock);
 const category_id = Number(req.body.category_id);
 
-      if (!name || !price || !stock || !category_id) {
+      if (!name ||price <= 0 || stock < 0 || !Number.isFinite(price) ||
+  !Number.isFinite(stock) ||
+  !category_id
+) {
         return res.status(400).json({
-          error: "Missing required product fields"
+        error: "Invalid product data"
         });
       }
 
@@ -295,7 +313,7 @@ const category_id = Number(req.body.category_id);
             console.log("Error adding product:", err);
             return res.status(500).json({
               error: "Failed to add product",
-              details: err.message
+             details: "Internal server error"
             });
           }
 
@@ -325,7 +343,6 @@ app.put(
   ]),
   async (req, res) => {
     try {
-      const productId = req.params.id;
 const name = cleanText(req.body.name);
 const price = Number(req.body.price);
 const stock = Number(req.body.stock);
@@ -333,7 +350,13 @@ const category_id = Number(req.body.category_id);
 const image_url = req.body.image_url;
 const image_url_2 = req.body.image_url_2;
 const image_url_3 = req.body.image_url_3;
+const productId = Number(req.params.id);
 
+if (!Number.isInteger(productId)) {
+  return res.status(400).json({
+    error: "Invalid product id"
+  });
+}
       let finalImageUrl = image_url || "";
       let finalImageUrl2 = image_url_2 || "";
       let finalImageUrl3 = image_url_3 || "";
@@ -349,7 +372,18 @@ const image_url_3 = req.body.image_url_3;
       if (req.files?.image3?.[0]) {
         finalImageUrl3 = await uploadToCloudinary(req.files.image3[0].buffer);
       }
-
+if (
+  !name ||
+  price <= 0 ||
+  stock < 0 ||
+  !Number.isFinite(price) ||
+  !Number.isFinite(stock) ||
+  !category_id
+) {
+  return res.status(400).json({
+    error: "Invalid product data"
+  });
+}
       const sql = `
         UPDATE products
         SET name = ?, price = ?, stock = ?, category_id = ?, 
@@ -374,7 +408,7 @@ const image_url_3 = req.body.image_url_3;
             console.log("Error updating product:", err);
             return res.status(500).json({
               error: "Failed to update product",
-              details: err.message
+             details: "Internal server error"
             });
           }
 
@@ -395,8 +429,13 @@ const image_url_3 = req.body.image_url_3;
 );
 
 app.delete("/products/:id", verifyAdmin, (req, res) => {
-  const productId = req.params.id;
+const productId = Number(req.params.id);
 
+if (!Number.isInteger(productId)) {
+  return res.status(400).json({
+    error: "Invalid product id"
+  });
+}
   db.query("DELETE FROM products WHERE id = ?", [productId], (err) => {
     if (err) {
       console.log("Error deleting product:", err);
@@ -413,7 +452,11 @@ app.delete("/products/:id", verifyAdmin, (req, res) => {
 
 app.post("/orders", orderLimiter, (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
-
+if (!Number.isFinite(Number(totalPrice)) || Number(totalPrice) <= 0) {
+  return res.status(400).json({
+    error: "Invalid total price"
+  });
+}
   if (!customerInfo || !Array.isArray(cart) || cart.length === 0) {
     return res.status(400).json({ error: "Invalid order data" });
   }
@@ -663,9 +706,14 @@ app.get("/orders-with-items", verifyAdmin, (req, res) => {
 });
 
 app.put("/orders/:id/status", verifyAdmin, (req, res) => {
-  const orderId = req.params.id;
   const { status } = req.body;
+const orderId = Number(req.params.id);
 
+if (!Number.isInteger(orderId)) {
+  return res.status(400).json({
+    error: "Invalid order id"
+  });
+}
   db.query("SELECT * FROM orders WHERE id = ?", [orderId], (err, orderResult) => {
     if (err) {
       console.log("Error fetching order:", err);
@@ -744,8 +792,13 @@ app.put("/orders/:id/status", verifyAdmin, (req, res) => {
 });
 
 app.delete("/orders/:id", verifyAdmin, (req, res) => {
-  const orderId = req.params.id;
+const orderId = Number(req.params.id);
 
+if (!Number.isInteger(orderId)) {
+  return res.status(400).json({
+    error: "Invalid order id"
+  });
+}
   db.query("SELECT * FROM orders WHERE id = ?", [orderId], (err, orderResult) => {
     if (err) {
       console.log("Error fetching order:", err);
