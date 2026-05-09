@@ -12,6 +12,7 @@ const cloudinary = require("cloudinary").v2;
 const helmet = require("helmet");
 const app = express();
 const rateLimit = require("express-rate-limit");
+const sanitizeHtml = require("sanitize-html");
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000"
@@ -68,7 +69,12 @@ const verifyAdmin = (req, res, next) => {
 
   next();
 };
-
+const cleanText = (value) => {
+  return sanitizeHtml(String(value || ""), {
+    allowedTags: [],
+    allowedAttributes: {}
+  }).trim();
+};
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -412,13 +418,17 @@ app.post("/orders", orderLimiter, (req, res) => {
     return res.status(400).json({ error: "Invalid order data" });
   }
 
-  const { fullName, phone, city, address, notes } = customerInfo;
+const fullName = cleanText(customerInfo.fullName);
+const phone = cleanText(customerInfo.phone);
+const city = cleanText(customerInfo.city);
+const address = cleanText(customerInfo.address);
+const notes = cleanText(customerInfo.notes);
 const normalizedPhone = String(phone).replace(/\D/g, "");
 const israeliPhoneRegex = /^05\d{8}$/;
 
 if (!israeliPhoneRegex.test(normalizedPhone)) {
   return res.status(400).json({
-    error: "Invalid Israeli phone number"
+    error: "Phone number must start with 05 and contain 10 digits"
   });
 }
 if (
@@ -434,7 +444,7 @@ if (
 for (const item of cart) {
   if (
     !item.id ||
-    !item.name ||
+   !cleanText(item.name)  ||
     Number(item.quantity) <= 0 ||
     Number(item.price) < 0
   ) {
@@ -496,7 +506,7 @@ for (const item of cart) {
           const orderItemsValues = cart.map((item) => [
             orderId,
             item.id,
-            item.name,
+            cleanText(item.name),
             item.quantity,
             item.price
           ]);
