@@ -708,7 +708,13 @@ app.get("/orders-with-items", verifyAdmin, (req, res) => {
 app.put("/orders/:id/status", verifyAdmin, (req, res) => {
   const { status } = req.body;
 const orderId = Number(req.params.id);
+const allowedStatuses = ["pending", "delivered", "cancelled"];
 
+if (!allowedStatuses.includes(status)) {
+  return res.status(400).json({
+    error: "Invalid order status"
+  });
+}
 if (!Number.isInteger(orderId)) {
   return res.status(400).json({
     error: "Invalid order id"
