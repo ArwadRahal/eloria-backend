@@ -11,7 +11,7 @@ const { Resend } = require("resend");
 const cloudinary = require("cloudinary").v2;
 
 const app = express();
-
+const rateLimit = require("express-rate-limit");
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000"
@@ -19,6 +19,33 @@ app.use(
 );
 
 app.use(express.json());
+
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: {
+    error: "Too many requests. Please try again later."
+  }
+});
+
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error: "Too many login attempts. Please try again later."
+  }
+});
+
+const orderLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  message: {
+    error: "Too many orders. Please try again later."
+  }
+});
+
+app.use(generalLimiter);
 
 const verifyAdmin = (req, res, next) => {
   const token = req.headers["x-admin-token"];
@@ -88,7 +115,7 @@ const db = mysql.createConnection({
   multipleStatements: true
 });
 
-app.post("/admin-login", (req, res) => {
+app.post("/admin-login", adminLoginLimiter, (req, res) => {
   const { password } = req.body;
 
   if (!password) {
@@ -374,7 +401,7 @@ app.delete("/products/:id", verifyAdmin, (req, res) => {
    ORDERS
    ========================= */
 
-app.post("/orders", (req, res) => {
+app.post("/orders", orderLimiter, (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
 
   if (!customerInfo || !Array.isArray(cart) || cart.length === 0) {
