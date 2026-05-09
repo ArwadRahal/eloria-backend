@@ -171,7 +171,7 @@ app.get("/categories", (req, res) => {
 });
 
 app.post("/categories", verifyAdmin, (req, res) => {
-  const { name } = req.body;
+  const name = cleanText(req.body.name);
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: "Category name is required" });
@@ -254,7 +254,10 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { name, price, stock, category_id } = req.body;
+const name = cleanText(req.body.name);
+const price = Number(req.body.price);
+const stock = Number(req.body.stock);
+const category_id = Number(req.body.category_id);
 
       if (!name || !price || !stock || !category_id) {
         return res.status(400).json({
@@ -323,16 +326,13 @@ app.put(
   async (req, res) => {
     try {
       const productId = req.params.id;
-
-      const {
-        name,
-        price,
-        stock,
-        category_id,
-        image_url,
-        image_url_2,
-        image_url_3
-      } = req.body;
+const name = cleanText(req.body.name);
+const price = Number(req.body.price);
+const stock = Number(req.body.stock);
+const category_id = Number(req.body.category_id);
+const image_url = req.body.image_url;
+const image_url_2 = req.body.image_url_2;
+const image_url_3 = req.body.image_url_3;
 
       let finalImageUrl = image_url || "";
       let finalImageUrl2 = image_url_2 || "";
