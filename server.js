@@ -13,12 +13,22 @@ const helmet = require("helmet");
 const app = express();
 const rateLimit = require("express-rate-limit");
 const sanitizeHtml = require("sanitize-html");
+const allowedOrigins = [
+  "http://localhost:3000",
+  process.env.FRONTEND_URL
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000"
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    }
   })
 );
-
 app.use(express.json());
 
 app.use(
@@ -327,7 +337,7 @@ const category_id = Number(req.body.category_id);
       console.log("Cloudinary upload error:", error);
       return res.status(500).json({
         error: "Image upload failed",
-        details: error.message
+       details: "Internal server error"
       });
     }
   }
@@ -452,14 +462,16 @@ if (!Number.isInteger(productId)) {
 
 app.post("/orders", orderLimiter, (req, res) => {
   const { customerInfo, cart, totalPrice } = req.body;
+
+if (!customerInfo || !Array.isArray(cart) || cart.length === 0) {
+  return res.status(400).json({ error: "Invalid order data" });
+}
+
 if (!Number.isFinite(Number(totalPrice)) || Number(totalPrice) <= 0) {
   return res.status(400).json({
     error: "Invalid total price"
   });
 }
-  if (!customerInfo || !Array.isArray(cart) || cart.length === 0) {
-    return res.status(400).json({ error: "Invalid order data" });
-  }
 
 const fullName = cleanText(customerInfo.fullName);
 const phone = cleanText(customerInfo.phone);
