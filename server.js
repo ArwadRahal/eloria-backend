@@ -15,7 +15,7 @@ const rateLimit = require("express-rate-limit");
 const sanitizeHtml = require("sanitize-html");
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL
+  "https://eloria-frontend.onrender.com"
 ];
 
 app.use(
@@ -24,9 +24,11 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        callback(null, false);
       }
-    }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "x-admin-token"]
   })
 );
 app.use(express.json());
