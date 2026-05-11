@@ -258,9 +258,7 @@ if (!Number.isInteger(categoryId)) {
    PRODUCTS
    ========================= */
 
-app.get("/products", (req, res) => {
-  const sql = "SELECT * FROM products ORDER BY id DESC";
-
+app.get("/products", (req, res) => {  const sql = "SELECT * FROM products ORDER BY id DESC";
   db.query(sql, (err, result) => {
     if (err) {
       console.log("Error fetching products:", err);
@@ -270,7 +268,6 @@ app.get("/products", (req, res) => {
     return res.json(result);
   });
 });
-
 app.post(
   "/products",
   verifyAdmin,
@@ -281,17 +278,24 @@ app.post(
   ]),
   async (req, res) => {
     try {
-const name = cleanText(req.body.name);
-const price = Number(req.body.price);
-const stock = Number(req.body.stock);
-const category_id = Number(req.body.category_id);
+      const name = cleanText(req.body.name);
+      const description_en = cleanText(req.body.description_en);
+      const description_ar = cleanText(req.body.description_ar);
 
-      if (!name ||price <= 0 || stock < 0 || !Number.isFinite(price) ||
-  !Number.isFinite(stock) ||
-  !category_id
-) {
+      const price = Number(req.body.price);
+      const stock = Number(req.body.stock);
+      const category_id = Number(req.body.category_id);
+
+      if (
+        !name ||
+        price <= 0 ||
+        stock < 0 ||
+        !Number.isFinite(price) ||
+        !Number.isFinite(stock) ||
+        !category_id
+      ) {
         return res.status(400).json({
-        error: "Invalid product data"
+          error: "Invalid product data"
         });
       }
 
@@ -313,19 +317,29 @@ const category_id = Number(req.body.category_id);
 
       const sql = `
         INSERT INTO products 
-        (name, price, stock, category_id, image_url, image_url_2, image_url_3)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (name, price, stock, category_id, description_en, description_ar, image_url, image_url_2, image_url_3)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       db.query(
         sql,
-        [name, price, stock, category_id, imageUrl, imageUrl2, imageUrl3],
+        [
+          name,
+          price,
+          stock,
+          category_id,
+          description_en,
+          description_ar,
+          imageUrl,
+          imageUrl2,
+          imageUrl3
+        ],
         (err, result) => {
           if (err) {
             console.log("Error adding product:", err);
             return res.status(500).json({
               error: "Failed to add product",
-             details: "Internal server error"
+              details: "Internal server error"
             });
           }
 
@@ -339,12 +353,11 @@ const category_id = Number(req.body.category_id);
       console.log("Cloudinary upload error:", error);
       return res.status(500).json({
         error: "Image upload failed",
-       details: "Internal server error"
+        details: "Internal server error"
       });
     }
   }
 );
-
 app.put(
   "/products/:id",
   verifyAdmin,
@@ -355,20 +368,39 @@ app.put(
   ]),
   async (req, res) => {
     try {
-const name = cleanText(req.body.name);
-const price = Number(req.body.price);
-const stock = Number(req.body.stock);
-const category_id = Number(req.body.category_id);
-const image_url = req.body.image_url;
-const image_url_2 = req.body.image_url_2;
-const image_url_3 = req.body.image_url_3;
-const productId = Number(req.params.id);
+      const productId = Number(req.params.id);
 
-if (!Number.isInteger(productId)) {
-  return res.status(400).json({
-    error: "Invalid product id"
-  });
-}
+      if (!Number.isInteger(productId)) {
+        return res.status(400).json({
+          error: "Invalid product id"
+        });
+      }
+
+      const name = cleanText(req.body.name);
+      const description_en = cleanText(req.body.description_en);
+      const description_ar = cleanText(req.body.description_ar);
+
+      const price = Number(req.body.price);
+      const stock = Number(req.body.stock);
+      const category_id = Number(req.body.category_id);
+
+      const image_url = req.body.image_url;
+      const image_url_2 = req.body.image_url_2;
+      const image_url_3 = req.body.image_url_3;
+
+      if (
+        !name ||
+        price <= 0 ||
+        stock < 0 ||
+        !Number.isFinite(price) ||
+        !Number.isFinite(stock) ||
+        !category_id
+      ) {
+        return res.status(400).json({
+          error: "Invalid product data"
+        });
+      }
+
       let finalImageUrl = image_url || "";
       let finalImageUrl2 = image_url_2 || "";
       let finalImageUrl3 = image_url_3 || "";
@@ -384,21 +416,11 @@ if (!Number.isInteger(productId)) {
       if (req.files?.image3?.[0]) {
         finalImageUrl3 = await uploadToCloudinary(req.files.image3[0].buffer);
       }
-if (
-  !name ||
-  price <= 0 ||
-  stock < 0 ||
-  !Number.isFinite(price) ||
-  !Number.isFinite(stock) ||
-  !category_id
-) {
-  return res.status(400).json({
-    error: "Invalid product data"
-  });
-}
+
       const sql = `
         UPDATE products
-        SET name = ?, price = ?, stock = ?, category_id = ?, 
+        SET name = ?, price = ?, stock = ?, category_id = ?,
+            description_en = ?, description_ar = ?,
             image_url = ?, image_url_2 = ?, image_url_3 = ?
         WHERE id = ?
       `;
@@ -410,6 +432,8 @@ if (
           price,
           stock,
           category_id,
+          description_en,
+          description_ar,
           finalImageUrl,
           finalImageUrl2,
           finalImageUrl3,
@@ -420,7 +444,7 @@ if (
             console.log("Error updating product:", err);
             return res.status(500).json({
               error: "Failed to update product",
-             details: "Internal server error"
+              details: "Internal server error"
             });
           }
 
@@ -434,7 +458,7 @@ if (
       console.log("Cloudinary update error:", error);
       return res.status(500).json({
         error: "Image upload failed",
-        details: error.message
+        details: "Internal server error"
       });
     }
   }
