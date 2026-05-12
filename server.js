@@ -279,6 +279,7 @@ app.post(
   async (req, res) => {
     try {
       const name = cleanText(req.body.name);
+      const name_ar = cleanText(req.body.name_ar);
       const description_en = cleanText(req.body.description_en);
       const description_ar = cleanText(req.body.description_ar);
 
@@ -317,23 +318,24 @@ app.post(
 
       const sql = `
         INSERT INTO products 
-        (name, price, stock, category_id, description_en, description_ar, image_url, image_url_2, image_url_3)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (name, name_ar, price, stock, category_id, description_en, description_ar, image_url, image_url_2, image_url_3)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       db.query(
         sql,
         [
-          name,
-          price,
-          stock,
-          category_id,
-          description_en,
-          description_ar,
-          imageUrl,
-          imageUrl2,
-          imageUrl3
-        ],
+  name,
+  name_ar,
+  price,
+  stock,
+  category_id,
+  description_en,
+  description_ar,
+  imageUrl,
+  imageUrl2,
+  imageUrl3
+],
         (err, result) => {
           if (err) {
             console.log("Error adding product:", err);
@@ -377,6 +379,7 @@ app.put(
       }
 
       const name = cleanText(req.body.name);
+      const name_ar = cleanText(req.body.name_ar);
       const description_en = cleanText(req.body.description_en);
       const description_ar = cleanText(req.body.description_ar);
 
@@ -419,7 +422,7 @@ app.put(
 
       const sql = `
         UPDATE products
-        SET name = ?, price = ?, stock = ?, category_id = ?,
+        SET SET name = ?, name_ar = ?, price = ?, stock = ?, category_id = ?,
             description_en = ?, description_ar = ?,
             image_url = ?, image_url_2 = ?, image_url_3 = ?
         WHERE id = ?
@@ -427,18 +430,7 @@ app.put(
 
       db.query(
         sql,
-        [
-          name,
-          price,
-          stock,
-          category_id,
-          description_en,
-          description_ar,
-          finalImageUrl,
-          finalImageUrl2,
-          finalImageUrl3,
-          productId
-        ],
+        [name,name_ar,price,stock,category_id,description_en,description_ar,finalImageUrl,finalImageUrl2,finalImageUrl3,          productId],
         (err, result) => {
           if (err) {
             console.log("Error updating product:", err);
