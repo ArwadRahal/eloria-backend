@@ -194,25 +194,61 @@ app.get("/categories", (req, res) => {
 
 app.post("/categories", verifyAdmin, (req, res) => {
   const name = cleanText(req.body.name);
+  const name_ar = cleanText(req.body.name_ar);
 
-  if (!name || !name.trim()) {
+  if (!name) {
     return res.status(400).json({ error: "Category name is required" });
   }
 
-  const sql = "INSERT INTO categories (name) VALUES (?)";
+  const sql = "INSERT INTO categories (name, name_ar) VALUES (?, ?)";
 
-  db.query(sql, [name.trim()], (err, result) => {
+  db.query(sql, [name, name_ar], (err, result) => {
     if (err) {
       console.log("Error adding category:", err);
       return res.status(500).json({
         error: "Failed to add category",
-       details: "Internal server error"
+        details: "Internal server error"
       });
     }
 
     return res.json({
       message: "Category added successfully",
       categoryId: result.insertId
+    });
+  });
+});
+
+app.put("/categories/:id", verifyAdmin, (req, res) => {
+  const categoryId = Number(req.params.id);
+  const name = cleanText(req.body.name);
+  const name_ar = cleanText(req.body.name_ar);
+
+  if (!Number.isInteger(categoryId)) {
+    return res.status(400).json({
+      error: "Invalid category id"
+    });
+  }
+
+  if (!name) {
+    return res.status(400).json({
+      error: "Category name is required"
+    });
+  }
+
+  const sql = "UPDATE categories SET name = ?, name_ar = ? WHERE id = ?";
+
+  db.query(sql, [name, name_ar, categoryId], (err, result) => {
+    if (err) {
+      console.log("Error updating category:", err);
+      return res.status(500).json({
+        error: "Failed to update category",
+        details: "Internal server error"
+      });
+    }
+
+    return res.json({
+      message: "Category updated successfully",
+      affectedRows: result.affectedRows
     });
   });
 });
