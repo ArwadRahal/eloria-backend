@@ -456,13 +456,13 @@ app.put(
         finalImageUrl3 = await uploadToCloudinary(req.files.image3[0].buffer);
       }
 
-      const sql = `
-        UPDATE products
-        SET SET name = ?, name_ar = ?, price = ?, stock = ?, category_id = ?,
-            description_en = ?, description_ar = ?,
-            image_url = ?, image_url_2 = ?, image_url_3 = ?
-        WHERE id = ?
-      `;
+     const sql = `
+  UPDATE products
+  SET name = ?, name_ar = ?, price = ?, stock = ?, category_id = ?,
+      description_en = ?, description_ar = ?,
+      image_url = ?, image_url_2 = ?, image_url_3 = ?
+  WHERE id = ?
+`;
 
       db.query(
         sql,
