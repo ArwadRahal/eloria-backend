@@ -316,9 +316,9 @@ app.post(
     try {
       const name = cleanText(req.body.name);
       const name_ar = cleanText(req.body.name_ar);
+      const is_new = Number(req.body.is_new) === 1 ? 1 : 0;
       const description_en = cleanText(req.body.description_en);
       const description_ar = cleanText(req.body.description_ar);
-
       const price = Number(req.body.price);
       const stock = Number(req.body.stock);
       const category_id = Number(req.body.category_id);
@@ -352,26 +352,27 @@ app.post(
         imageUrl3 = await uploadToCloudinary(req.files.image3[0].buffer);
       }
 
-      const sql = `
-        INSERT INTO products 
-        (name, name_ar, price, stock, category_id, description_en, description_ar, image_url, image_url_2, image_url_3)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+     const sql = `
+  INSERT INTO products 
+  (name, name_ar, price, stock, category_id, description_en, description_ar, image_url, image_url_2, image_url_3, is_new)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
 
-      db.query(
-        sql,
-        [
-  name,
-  name_ar,
-  price,
-  stock,
-  category_id,
-  description_en,
-  description_ar,
-  imageUrl,
-  imageUrl2,
-  imageUrl3
-],
+db.query(
+  sql,
+  [
+    name,
+    name_ar,
+    price,
+    stock,
+    category_id,
+    description_en,
+    description_ar,
+    imageUrl,
+    imageUrl2,
+    imageUrl3,
+    is_new
+  ],
         (err, result) => {
           if (err) {
             console.log("Error adding product:", err);
@@ -418,7 +419,7 @@ app.put(
       const name_ar = cleanText(req.body.name_ar);
       const description_en = cleanText(req.body.description_en);
       const description_ar = cleanText(req.body.description_ar);
-
+const is_new = Number(req.body.is_new) === 1 ? 1 : 0;
       const price = Number(req.body.price);
       const stock = Number(req.body.stock);
       const category_id = Number(req.body.category_id);
@@ -460,13 +461,26 @@ app.put(
   UPDATE products
   SET name = ?, name_ar = ?, price = ?, stock = ?, category_id = ?,
       description_en = ?, description_ar = ?,
-      image_url = ?, image_url_2 = ?, image_url_3 = ?
+      image_url = ?, image_url_2 = ?, image_url_3 = ?, is_new = ?
   WHERE id = ?
 `;
 
       db.query(
         sql,
-        [name,name_ar,price,stock,category_id,description_en,description_ar,finalImageUrl,finalImageUrl2,finalImageUrl3,          productId],
+        [
+  name,
+  name_ar,
+  price,
+  stock,
+  category_id,
+  description_en,
+  description_ar,
+  finalImageUrl,
+  finalImageUrl2,
+  finalImageUrl3,
+  is_new,
+  productId
+],
         (err, result) => {
           if (err) {
             console.log("Error updating product:", err);
