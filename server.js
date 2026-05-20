@@ -11,20 +11,23 @@ const { Resend } = require("resend");
 const cloudinary = require("cloudinary").v2;
 const helmet = require("helmet");
 const app = express();
+app.disable("x-powered-by");
 const rateLimit = require("express-rate-limit");
 const sanitizeHtml = require("sanitize-html");
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://eloria-frontend.onrender.com"
+  "https://eloria-frontend.onrender.com",
+  "https://glowwitheloria.com",
+  "https://www.glowwitheloria.com"
 ];
-
+app.set("trust proxy", 1);
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(null, false);
+        callback(new Error("Not allowed by CORS"));
       }
     },
     methods: ["GET", "POST", "PUT", "DELETE"],
